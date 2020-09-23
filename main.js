@@ -4,10 +4,11 @@ const ctx = canvas.getContext("2d");
 // Refactor start
 
 class Node {
-    constructor(value, left = null, right = null) {
+    constructor(value, parent = null, left = null, right = null) {
         this.value  = value;
         this.left   = left;
         this.right  = right;
+        this.parent = parent;
         this.height = 0;
         this.level  = 0;
 
@@ -18,22 +19,22 @@ class Node {
     }
 }
 
-let delay = 500;
+let delay = 100;
 
 const sleep = ms => new Promise((r) => setTimeout(r, ms));
 
 class BST {
-    static async push(node, value, level = 0) {
-        if (!node) return new Node(value);
+    static async push(node, value, parent = null, level = 0) {
+        if (!node) return new Node(value, parent);
 
         node.extras.highlight = true;
         await sleep(delay);
         node.extras.highlight = false;
 
         if (value > node.value)
-            node.left = await BST.push(node.left, value, level + 1);
+            node.left = await BST.push(node.left, value, node, level + 1);
         else if (value < node.value)
-            node.right = await BST.push(node.right, value, level + 1);
+            node.right = await BST.push(node.right, value, node, level + 1);
 
         node.height = Math.max(BST.height(node.left), BST.height(node.right)) + 1;
         node.level  = level;
@@ -80,6 +81,7 @@ let mouse = {
 const camera = {
     x: 0,
     y: 0,
+    zoom: 1,
     bounds: {
         minX: Infinity,
         maxX: -Infinity,
@@ -101,8 +103,55 @@ const resize = () => {
     canvas.height = dimensions.height;
 };
 
-const radius = 20;
-const padding = 20;
+const utils = {
+    distance(x1, x2, y1, y2) {
+        return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+    }
+};
+
+let radius = 20;
+let padding = 20;
+let fontSize = 14; // in pts
+let lineWidth = 3;
+
+let inserting = false;
+
+
+const moveTree = (tree, dx = 0, dy = 0) => {
+    if (dx === 0 && dy === 0) return;
+    BST.breadthFirstTraverse(tree, (item) => {
+        item.extras.x += dx;
+        item.extras.x += dy;
+    });
+};
+
+const fixCollisions = (tree, node) => {
+    // const { x: x1, y: y1 } = node.extras;
+    // BST.breadthFirstTraverse(tree, (item) => {
+    //     if (item.value == node.value) return; // Skip if it's the same node being checked
+
+    //     const { x: x2, y: y2 } = item.extras;
+    //     const d = utils.distance(x1, x2, y1, y2);
+
+    let parent = node.parent;
+    while (parent) {
+        if (node.value > parent.value && node.extras.x <= parent.extras.x) {
+            moveTree(parent.left, parent.extras.x - node.extras.x + padding + radius * 2);
+            BST.breadthFirstTraverse(parent.left, (item) => {
+                fixCollisions(tree, item);
+            });
+            break;
+        } else if (node.value < parent.value && node.extras.x >= parent.extras.x) {
+            moveTree(parent.right, -(node.extras.x - parent.extras.x + padding + radius * 2));
+            BST.breadthFirstTraverse(parent.right, (item) => {
+                fixCollisions(tree, item);
+            });
+            break;
+        }
+        parent = parent.parent;
+    }
+    // });
+};
 
 const calculateNodePosition = (node, parent) => {
     return parent
@@ -123,7 +172,9 @@ const updateNode = (node, parent = null) => {
         const {x, y} = calculateNodePosition(node, parent);
         node.extras.x = x;
         node.extras.y = y;
-        updateCameraBounds(tree); // TODO: Find a better way to do this
+        // TODO: Find a better place to call these 2 functions
+        fixCollisions(tree, node);
+        updateCameraBounds(tree);
         node.extras.initialized = true;
     } else {
         if (!node.extras.entered) {
@@ -141,21 +192,12 @@ const renderNode = (node, parent = null) => {
 
     ctx.save();
 
-    ctx.lineWidth = 3;
+    ctx.lineWidth = lineWidth;
     ctx.strokeStyle = node.extras.highlight ? "red" : "black";
-
-    ctx.beginPath();
-
-
-    let { x, y } = node.extras;
-
-    const textMeasurements = ctx.measureText(node.value);
-
-    ctx.arc(x, y, node.extras.multiplier * radius, 0, Math.PI * 2);
-    ctx.fillText(node.value, x - textMeasurements.width / 2, y + ctx.measureText("M").width / 2 - 2);
-    ctx.stroke();
+    ctx.font = `${fontSize}pt Arial`;
 
 
+    // Draw connection
     if (parent) {
         ctx.save();
 
@@ -164,19 +206,21 @@ const renderNode = (node, parent = null) => {
         const dx = (parent.extras.x - node.extras.x)
               dy = (parent.extras.y - node.extras.y);
 
-
         const angle = Math.atan2(dy, dx);
         const start = {
             x: parent.extras.x - radius * Math.cos(angle),
             y: parent.extras.y - radius * Math.sin(angle)
         };
 
-        const d = Math.sqrt(Math.pow(dx, 2), Math.pow(dy, 2)) - radius;
+        // const halfLineWidth = lineWidth / 2;
+
+        const d = utils.distance(parent.extras.x, node.extras.x, parent.extras.y, node.extras.y) - radius * 2;
 
         const end = {
-            x: node.extras.x - (radius + (d - d * node.extras.multiplier)) * Math.cos(angle + Math.PI),
-            y: node.extras.y - (radius + (d - d * node.extras.multiplier)) * Math.sin(angle + Math.PI)
+            x: start.x + (d * node.extras.multiplier * Math.cos(angle + Math.PI)),
+            y: start.y + (d * node.extras.multiplier * Math.sin(angle + Math.PI))
         };
+
 
         ctx.beginPath();
         ctx.moveTo(start.x, start.y);
@@ -185,6 +229,27 @@ const renderNode = (node, parent = null) => {
 
         ctx.restore();
     }
+
+
+    let { x, y } = node.extras;
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+
+    // Draw circle
+    ctx.arc(x, y, node.extras.multiplier * radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fill();
+
+
+
+    // Draw text
+
+    ctx.fillStyle = "black";
+    if (node.extras.entered) {
+        const textMeasurements = ctx.measureText(node.value);
+        ctx.fillText(node.value, x - textMeasurements.width / 2, y + ctx.measureText("M").width / 2 - 2);
+    }
+
 
     ctx.restore();
 
@@ -206,8 +271,9 @@ const render = () => {
           hHeight = dimensions.height / 2;
 
     ctx.save();
-
     ctx.translate(hWidth + camera.x, hHeight + camera.y);
+    ctx.scale(camera.zoom, camera.zoom);
+
     ctx.clearRect(-hWidth * 10, -hHeight * 10, dimensions.width * 10, dimensions.height * 10);
 
     updateTree(tree);
@@ -216,6 +282,9 @@ const render = () => {
     ctx.restore();
     window.requestAnimationFrame(render);
 };
+
+resize();
+window.requestAnimationFrame(render);
 
 
 const updateCameraBounds = (tree) => {
@@ -231,7 +300,7 @@ window.addEventListener("resize", () => {
     resize();
 });
 
-window.addEventListener("mousedown", ({ clientX, clientY }) => {
+canvas.addEventListener("mousedown", ({ clientX, clientY }) => {
     mouse.downPos.x = clientX;
     mouse.downPos.y = clientY;
 
@@ -247,16 +316,29 @@ window.addEventListener("mouseup", ({ clientX, clientY }) => {
     canvas.style.cursor = "grab";
 
     // This is temporary
-    const dragDistance = Math.sqrt(Math.pow(clientX - mouse.downPos.x, 2), Math.pow(clientY - mouse.downPos.y, 2));
-    if (dragDistance < 2) {
+    const dragDistance = utils.distance(clientX, mouse.downPos.x, clientY, mouse.downPos.y);
+    if (!inserting && dragDistance < 2) {
         ((async () => {
-            tree = await BST.push(tree, Math.round(Math.random() * 100));
+            inserting = true;
+            tree = await BST.push(tree, Math.round(Math.random() * 1000));
+            inserting = false;
         })())
     }
 });
 
+window.addEventListener('keydown', ({ keyCode }) => {
+    switch (keyCode) {
+        case 38: // Up
+            camera.zoom += 0.05;
+            break;
+        case 40: // Down
+            camera.zoom -= 0.05;
+            break;
+    }
+});
+
 window.addEventListener("mousemove", ({ clientX, clientY }) => {
-    if (mouse.isDown) {
+    if (mouse.isDown && tree) {
         const newX = (clientX - mouse.downPos.x) + mouse.oldCamera.x,
               newY = (clientY - mouse.downPos.y) + mouse.oldCamera.y;
 
@@ -278,6 +360,19 @@ window.addEventListener("mousemove", ({ clientX, clientY }) => {
     }
 });
 
+const $insert = document.querySelector("#insert");
+const $speed = document.querySelector("#speed");
 
-resize();
-window.requestAnimationFrame(render);
+$speed.value = 10;
+
+$insert.addEventListener("keydown", ({ keyCode }) => {
+    const { value } = $insert;
+    if (!inserting && keyCode === 13) { // Enter
+        inserting = true;
+        $insert.value = "";
+        BST.push(tree, value).then((newTree) => {
+            tree = newTree
+            inserting = false;
+        });
+    }
+});

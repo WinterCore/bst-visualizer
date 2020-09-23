@@ -1,3 +1,7 @@
+:root {
+  --input-padding: 10px;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -9,4 +13,49 @@ body {
 
 canvas {
   cursor: grab;
+}
+
+input {
+  border: 2px solid grey;
+  padding: 5px var(--input-padding);
+  transition: all 150ms ease-in-out;
+}
+
+input:focus {
+  border: 2px solid cyan;
+}
+
+.input-group {
+  position: relative;
+}
+
+.input-group label {
+  position: absolute;
+  left: calc(var(--input-padding) / 2);
+  top: -12px;
+  pointer-events: none;
+  font-family: sans-serif, Arial;
+  font-size: 14px;
+  transition: all 150ms ease-in-out;
+  background: white;
+  padding: 0 2px;
+}
+
+.input-group input:focus + label {
+  color: cyan;
+}
+
+#insert, #speed {
+  width: 100px;
+}
+
+#panel {
+  display: flex;
+  position: fixed;
+  bottom: 5px;
+  left: 5px;
+}
+
+#panel > * {
+  margin: 0 10px;
 }
