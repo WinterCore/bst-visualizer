@@ -12,7 +12,8 @@ class Node {
         this.level  = 0;
 
         this.extras = {
-            new: true
+            initialized: false,
+            entered: false
         };
     }
 }
@@ -44,6 +45,20 @@ class BST {
         if (!node) return 0;
         return node.height;
     }
+
+    static breadthFirstTraverse(node, callback) {
+        if (!node) return;
+        const deque = [];
+
+        deque.push(node);
+
+        while (deque.length) {
+            const current = deque.shift();
+            callback(current);
+            if (current.left) deque.push(current.left);
+            if (current.right) deque.push(current.right);
+        }
+    }
 }
 
 let tree = null;
@@ -64,7 +79,13 @@ let mouse = {
 
 const camera = {
     x: 0,
-    y: 0
+    y: 0,
+    bounds: {
+        minX: Infinity,
+        maxX: -Infinity,
+        minY: Infinity,
+        maxY: -Infinity
+    }
 };
 
 const dimensions = {
@@ -83,7 +104,39 @@ const resize = () => {
 const radius = 20;
 const padding = 20;
 
-const renderNode = (node, parent) => {
+const calculateNodePosition = (node, parent) => {
+    return parent
+        ? {
+            x: parent.extras.x + (parent.left === node ? +1 : -1) * (padding + radius * 2),
+            y: parent.extras.y + padding + radius * 2
+        } : {
+            x: 0,
+            y: -(dimensions.height / 2) + padding + radius
+        };
+};
+
+const updateNode = (node, parent = null) => {
+    if (!node) return;
+
+    if (!node.extras.initialized) {
+        node.extras.multiplier = 0;
+        const {x, y} = calculateNodePosition(node, parent);
+        node.extras.x = x;
+        node.extras.y = y;
+        updateCameraBounds(tree); // TODO: Find a better way to do this
+        node.extras.initialized = true;
+    } else {
+        if (!node.extras.entered) {
+            node.extras.multiplier += 0.03;
+            if (node.extras.multiplier > 1) node.extras.entered = true;
+        }
+    }
+
+    updateNode(node.left, node);
+    updateNode(node.right, node);
+};
+
+const renderNode = (node, parent = null) => {
     if (!node) return;
 
     ctx.save();
@@ -93,40 +146,60 @@ const renderNode = (node, parent) => {
 
     ctx.beginPath();
 
-    if (node.extras.new) {
-        node.extras.radius = 0;
-        if (parent) {
-            node.extras.x = parent.extras.x + (parent.left === node ? +1 : -1) * (padding + radius * 2);
-            node.extras.y = parent.extras.y + padding + radius * 2;
-        } else {
-            node.extras.x = 0;
-            node.extras.y = -(dimensions.height / 2) + padding + radius;
-        }
-        node.extras.new = false;
-    } else {
-        if (node.extras.radius < radius) {
-            node.extras.radius += 1;
-        }
-    }
 
     let { x, y } = node.extras;
 
     const textMeasurements = ctx.measureText(node.value);
 
-    ctx.arc(x, y, node.extras.radius, 0, Math.PI * 2);
+    ctx.arc(x, y, node.extras.multiplier * radius, 0, Math.PI * 2);
     ctx.fillText(node.value, x - textMeasurements.width / 2, y + ctx.measureText("M").width / 2 - 2);
     ctx.stroke();
+
+
+    if (parent) {
+        ctx.save();
+
+        ctx.strokeStyle = "black";
+
+        const dx = (parent.extras.x - node.extras.x)
+              dy = (parent.extras.y - node.extras.y);
+
+
+        const angle = Math.atan2(dy, dx);
+        const start = {
+            x: parent.extras.x - radius * Math.cos(angle),
+            y: parent.extras.y - radius * Math.sin(angle)
+        };
+
+        const d = Math.sqrt(Math.pow(dx, 2), Math.pow(dy, 2)) - radius;
+
+        const end = {
+            x: node.extras.x - (radius + (d - d * node.extras.multiplier)) * Math.cos(angle + Math.PI),
+            y: node.extras.y - (radius + (d - d * node.extras.multiplier)) * Math.sin(angle + Math.PI)
+        };
+
+        ctx.beginPath();
+        ctx.moveTo(start.x, start.y);
+        ctx.lineTo(end.x, end.y);
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
     ctx.restore();
 
     renderNode(node.left, node);
     renderNode(node.right, node);
 };
 
-const renderTree = () => {
-    if (!tree) return;
-
-    renderNode(tree, null);
+const updateTree = (tree) => {
+    updateNode(tree);
 };
+
+const renderTree = (tree) => {
+    renderNode(tree);
+};
+
 
 const render = () => {
     const hWidth = dimensions.width / 2,
@@ -137,10 +210,21 @@ const render = () => {
     ctx.translate(hWidth + camera.x, hHeight + camera.y);
     ctx.clearRect(-hWidth * 10, -hHeight * 10, dimensions.width * 10, dimensions.height * 10);
 
-    renderTree();
+    updateTree(tree);
+    renderTree(tree);
 
     ctx.restore();
     window.requestAnimationFrame(render);
+};
+
+
+const updateCameraBounds = (tree) => {
+    BST.breadthFirstTraverse(tree, (item) => {
+        camera.bounds.minX = Math.min(item.extras.x, camera.bounds.minX);
+        camera.bounds.minY = Math.min(item.extras.y, camera.bounds.minY);
+        camera.bounds.maxX = Math.max(item.extras.x, camera.bounds.maxX);
+        camera.bounds.maxY = Math.max(item.extras.y, camera.bounds.maxY);
+    });
 };
 
 window.addEventListener("resize", () => {
@@ -164,15 +248,33 @@ window.addEventListener("mouseup", ({ clientX, clientY }) => {
 
     // This is temporary
     const dragDistance = Math.sqrt(Math.pow(clientX - mouse.downPos.x, 2), Math.pow(clientY - mouse.downPos.y, 2));
-    if (dragDistance < 8) {
-        BST.push(tree, Math.round(Math.random() * 100)).then((t) => tree = t);
+    if (dragDistance < 2) {
+        ((async () => {
+            tree = await BST.push(tree, Math.round(Math.random() * 100));
+        })())
     }
 });
 
 window.addEventListener("mousemove", ({ clientX, clientY }) => {
     if (mouse.isDown) {
-        camera.x = (clientX - mouse.downPos.x) + mouse.oldCamera.x;
-        camera.y = (clientY - mouse.downPos.y) + mouse.oldCamera.y;
+        const newX = (clientX - mouse.downPos.x) + mouse.oldCamera.x,
+              newY = (clientY - mouse.downPos.y) + mouse.oldCamera.y;
+
+        // I have no idea how this even works. it just does
+        const halfWidth = dimensions.width / 2,
+              halfHeight = dimensions.height / 2,
+              bxa = newX + halfWidth + camera.bounds.maxX,
+              bxb = newX - halfWidth + camera.bounds.minX,
+              bya = newY + halfHeight + camera.bounds.maxY,
+              byb = newY - halfHeight + camera.bounds.minY;
+
+        if (bxa < 0) camera.x = -halfWidth - camera.bounds.maxX;
+        else if (bxb > 0) camera.x = halfWidth - camera.bounds.minX;
+        else camera.x = newX;
+
+        if (bya < 0) camera.y = -halfHeight - camera.bounds.maxY;
+        else if (byb > 0) camera.y = halfHeight - camera.bounds.minY;
+        else camera.y = newY;
     }
 });
 
