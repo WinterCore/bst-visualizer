@@ -19,22 +19,45 @@ class Node {
     }
 }
 
-let delay = 100;
+
+const headsup = {
+    curPos: {},
+    nextPos: {},
+    transitioned: true,
+    initialized: false,
+    multiplier: 0,
+};
+
+let delay = 2000;
+let highlightedNode = null;
+let info = "";
 
 const sleep = ms => new Promise((r) => setTimeout(r, ms));
 
 class BST {
     static async push(node, value, parent = null, level = 0) {
-        if (!node) return new Node(value, parent);
+        if (!node) {
+            info = "";
+            highlightedNode = null;
+            return new Node(value, parent);
+        }
 
-        node.extras.highlight = true;
-        await sleep(delay);
-        node.extras.highlight = false;
+        if (value > node.value) {
+            highlightedNode = node;
+            info = `Inserting ${value} | ${value} is bigger than ${node.value} so we go right!`;
+            await sleep(delay);
 
-        if (value > node.value)
-            node.left = await BST.push(node.left, value, node, level + 1);
-        else if (value < node.value)
             node.right = await BST.push(node.right, value, node, level + 1);
+        } else if (value < node.value) {
+            highlightedNode = node;
+            info = `Inserting ${value} | ${value} is less than ${node.value} so we go left!`;
+            await sleep(delay);
+
+            node.left = await BST.push(node.left, value, node, level + 1);
+        } else {
+            highlightedNode = null;
+            info = "";
+        }
 
         node.height = Math.max(BST.height(node.left), BST.height(node.right)) + 1;
         node.level  = level;
@@ -61,6 +84,7 @@ class BST {
         }
     }
 }
+
 
 let tree = null;
 
@@ -106,13 +130,16 @@ const resize = () => {
 const utils = {
     distance(x1, x2, y1, y2) {
         return Math.sqrt(Math.pow(x1 - x2, 2) + Math.pow(y1 - y2, 2));
+    },
+    angle(x1, x2, y1, y2) {
+        return Math.atan2(y1 - y2, x1 - x2);
     }
 };
 
-let radius = 20;
+let radius = 30;
 let padding = 20;
 let fontSize = 14; // in pts
-let lineWidth = 3;
+let lineWidth = 5;
 
 let inserting = false;
 
@@ -126,37 +153,30 @@ const moveTree = (tree, dx = 0, dy = 0) => {
 };
 
 const fixCollisions = (tree, node) => {
-    // const { x: x1, y: y1 } = node.extras;
-    // BST.breadthFirstTraverse(tree, (item) => {
-    //     if (item.value == node.value) return; // Skip if it's the same node being checked
-
-    //     const { x: x2, y: y2 } = item.extras;
-    //     const d = utils.distance(x1, x2, y1, y2);
 
     let parent = node.parent;
     while (parent) {
         if (node.value > parent.value && node.extras.x <= parent.extras.x) {
-            moveTree(parent.left, parent.extras.x - node.extras.x + padding + radius * 2);
-            BST.breadthFirstTraverse(parent.left, (item) => {
+            moveTree(parent.right, (parent.extras.x - node.extras.x + padding + radius * 2));
+            BST.breadthFirstTraverse(parent.right, (item) => {
                 fixCollisions(tree, item);
             });
             break;
         } else if (node.value < parent.value && node.extras.x >= parent.extras.x) {
-            moveTree(parent.right, -(node.extras.x - parent.extras.x + padding + radius * 2));
-            BST.breadthFirstTraverse(parent.right, (item) => {
+            moveTree(parent.left, -(node.extras.x - parent.extras.x + padding + radius * 2));
+            BST.breadthFirstTraverse(parent.left, (item) => {
                 fixCollisions(tree, item);
             });
             break;
         }
         parent = parent.parent;
     }
-    // });
 };
 
 const calculateNodePosition = (node, parent) => {
     return parent
         ? {
-            x: parent.extras.x + (parent.left === node ? +1 : -1) * (padding + radius * 2),
+            x: parent.extras.x + (parent.left === node ? -1 : +1) * (padding + radius * 2),
             y: parent.extras.y + padding + radius * 2
         } : {
             x: 0,
@@ -193,7 +213,7 @@ const renderNode = (node, parent = null) => {
     ctx.save();
 
     ctx.lineWidth = lineWidth;
-    ctx.strokeStyle = node.extras.highlight ? "red" : "black";
+    ctx.strokeStyle = node === highlightedNode ? "red" : "black";
     ctx.font = `${fontSize}pt Arial`;
 
 
@@ -211,8 +231,6 @@ const renderNode = (node, parent = null) => {
             x: parent.extras.x - radius * Math.cos(angle),
             y: parent.extras.y - radius * Math.sin(angle)
         };
-
-        // const halfLineWidth = lineWidth / 2;
 
         const d = utils.distance(parent.extras.x, node.extras.x, parent.extras.y, node.extras.y) - radius * 2;
 
@@ -265,6 +283,72 @@ const renderTree = (tree) => {
     renderNode(tree);
 };
 
+const renderHeadsup = (headsup) => {
+    const { nextPos: { x: nx, y: ny }, curPos : { x: cx, y: cy } } = headsup;
+    const distance = utils.distance(nx, cx, ny, cy) * headsup.multiplier;
+    const angle = utils.angle(nx, cx, ny, cy);
+
+    const x = distance * Math.cos(angle), y = distance * Math.sin(angle);
+
+    ctx.font = `${fontSize * 0.8}pt Arial`;
+    ctx.save();
+
+    const { width } = ctx.measureText(info);
+    const { width: height } = ctx.measureText('M');
+
+    const padding = 10, lineLength = 50;
+
+
+    ctx.fillStyle = "white";
+    ctx.fillRect(cx + x + radius + padding, cy + y - height / 2 - padding, width + padding * 2, height + padding);
+
+    ctx.fillStyle = "red";
+    ctx.fillText(info, cx + x + radius + padding * 2, cy + y);
+
+
+    ctx.strokeStyle = "red";
+    ctx.lineWidth = lineWidth;
+
+    const ax = cx + x, ay = cy + y - radius - padding * 2;
+
+    ctx.beginPath();
+    ctx.moveTo(ax, ay);
+    ctx.lineTo(ax, ay - lineLength);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(ax, ay + 10);
+    ctx.lineTo(ax - 10, ay - 5);
+    ctx.lineTo(ax + 10, ay - 5);
+    ctx.fill();
+
+    ctx.restore();
+};
+
+const updateHeadsup = (headsup, highlightedNode) => {
+    const { x: nx, y: ny } = highlightedNode.extras;
+
+    if (!headsup.initialized) {
+        headsup.curPos = { x: nx, y: ny };
+        headsup.nextPos = { x: nx, y: ny };
+        headsup.initialized  = true;
+        headsup.transitioned = true;
+        return;
+    }
+
+    if (headsup.transitioned) {
+        headsup.nextPos = { x: nx, y: ny };
+        headsup.transitioned = false;
+        headsup.multiplier = 0;
+    } else {
+        if (headsup.multiplier > 1) {
+            headsup.curPos = {...headsup.nextPos};
+            headsup.transitioned = true;
+        }
+        headsup.multiplier += 0.05;
+    }
+};
+
 
 const render = () => {
     const hWidth = dimensions.width / 2,
@@ -274,10 +358,17 @@ const render = () => {
     ctx.translate(hWidth + camera.x, hHeight + camera.y);
     ctx.scale(camera.zoom, camera.zoom);
 
-    ctx.clearRect(-hWidth * 10, -hHeight * 10, dimensions.width * 10, dimensions.height * 10);
+    ctx.clearRect(-hWidth * 100, -hHeight * 100, dimensions.width * 200, dimensions.height * 200);
 
     updateTree(tree);
     renderTree(tree);
+
+    if (highlightedNode) {
+        updateHeadsup(headsup, highlightedNode);
+        renderHeadsup(headsup, highlightedNode);
+    } else {
+        headsup.initialized = false;
+    }
 
     ctx.restore();
     window.requestAnimationFrame(render);
@@ -311,19 +402,9 @@ canvas.addEventListener("mousedown", ({ clientX, clientY }) => {
     canvas.style.cursor = "grabbing";
 });
 
-window.addEventListener("mouseup", ({ clientX, clientY }) => {
+window.addEventListener("mouseup", () => {
     mouse.isDown = false;
     canvas.style.cursor = "grab";
-
-    // This is temporary
-    const dragDistance = utils.distance(clientX, mouse.downPos.x, clientY, mouse.downPos.y);
-    if (!inserting && dragDistance < 2) {
-        ((async () => {
-            inserting = true;
-            tree = await BST.push(tree, Math.round(Math.random() * 1000));
-            inserting = false;
-        })())
-    }
 });
 
 window.addEventListener('keydown', ({ keyCode }) => {
@@ -332,7 +413,7 @@ window.addEventListener('keydown', ({ keyCode }) => {
             camera.zoom += 0.05;
             break;
         case 40: // Down
-            camera.zoom -= 0.05;
+            camera.zoom = Math.max(camera.zoom - 0.05, 0);
             break;
     }
 });
@@ -343,36 +424,93 @@ window.addEventListener("mousemove", ({ clientX, clientY }) => {
               newY = (clientY - mouse.downPos.y) + mouse.oldCamera.y;
 
         // I have no idea how this even works. it just does
-        const halfWidth = dimensions.width / 2,
-              halfHeight = dimensions.height / 2,
-              bxa = newX + halfWidth + camera.bounds.maxX,
-              bxb = newX - halfWidth + camera.bounds.minX,
-              bya = newY + halfHeight + camera.bounds.maxY,
-              byb = newY - halfHeight + camera.bounds.minY;
+        // const halfWidth = dimensions.width / 2,
+        //       halfHeight = dimensions.height / 2,
+        //       bxa = newX + halfWidth + camera.bounds.maxX,
+        //       bxb = newX - halfWidth + camera.bounds.minX,
+        //       bya = newY + halfHeight + camera.bounds.maxY,
+        //       byb = newY - halfHeight + camera.bounds.minY;
 
-        if (bxa < 0) camera.x = -halfWidth - camera.bounds.maxX;
-        else if (bxb > 0) camera.x = halfWidth - camera.bounds.minX;
-        else camera.x = newX;
+        // if (bxa < 0) camera.x = -halfWidth - camera.bounds.maxX;
+        // else if (bxb > 0) camera.x = halfWidth - camera.bounds.minX;
+        // else camera.x = newX;
 
-        if (bya < 0) camera.y = -halfHeight - camera.bounds.maxY;
-        else if (byb > 0) camera.y = halfHeight - camera.bounds.minY;
-        else camera.y = newY;
+        // if (bya < 0) camera.y = -halfHeight - camera.bounds.maxY;
+        // else if (byb > 0) camera.y = halfHeight - camera.bounds.minY;
+        // else camera.y = newY;
+
+        // Disable camera bounds because it does not play well with the zooming functionality.
+        camera.x = newX;
+        camera.y = newY;
     }
 });
 
-const $insert = document.querySelector("#insert");
-const $speed = document.querySelector("#speed");
+const $insert       = document.querySelector("#insert"),
+      $delay        = document.querySelector("#delay"),
+      $random       = document.querySelector("#random"),
+      $help         = document.querySelector("#help"),
+      $downloadLink = document.querySelector("#download-link");
 
-$speed.value = 10;
+$delay.value = delay;
 
-$insert.addEventListener("keydown", ({ keyCode }) => {
+$insert.parentNode.querySelector("button").addEventListener("click", () => {
     const { value } = $insert;
-    if (!inserting && keyCode === 13) { // Enter
-        inserting = true;
-        $insert.value = "";
-        BST.push(tree, value).then((newTree) => {
-            tree = newTree
-            inserting = false;
-        });
-    }
+    if (inserting) return;
+    if (!value.length || Number.isNaN(+value)) return;
+
+    inserting = true;
+    $insert.value = "";
+    BST.push(tree, +value).then((newTree) => {
+        tree = newTree
+        inserting = false;
+    });
+});
+
+$delay.parentNode.querySelector("button").addEventListener("click", () => {
+    const { value } = $delay;
+    if (!value.length || Number.isNaN(+value)) return;
+
+    delay = +value;
+});
+
+
+$random.addEventListener("click", () => {
+    if (inserting) return;
+    inserting = true;
+    BST.push(tree, Math.floor(Math.random() * 1000)).then((newTree) => {
+        tree = newTree
+        inserting = false;
+    });
+});
+
+document.querySelector("#close-help").addEventListener("click", () => {
+    $help.style.display = "none";
+});
+
+document.querySelector("#open-help").addEventListener("click", () => {
+    $help.style.display = "block";
+});
+
+document.querySelector("#download").addEventListener("click", () => {
+    const zoom = camera.zoom;
+    const oldCam = { x: camera.x, y: camera.y };
+    const spacing = (radius + padding) * 2;
+    camera.zoom = 1;
+    camera.x = -camera.bounds.minX - dimensions.width / 2 + spacing / 2;
+    camera.y = -camera.bounds.minY - dimensions.height / 2 + spacing / 2;
+    canvas.width = camera.bounds.maxX - camera.bounds.minX + spacing;
+    canvas.height = camera.bounds.maxY - camera.bounds.minY + spacing;
+    setTimeout(() => {
+        const data = canvas.toDataURL("image/png"),
+              filename = `bst_${Date.now()}.png`;
+
+        $downloadLink.href = data;
+        $downloadLink.download = filename;
+        $downloadLink.click();
+        camera.zoom = zoom;
+        canvas.width = dimensions.width;
+        canvas.height = dimensions.height;
+        camera.x = oldCam.x;
+        camera.y = oldCam.y;
+    }, 100);
 });
