@@ -1,11 +1,11 @@
 import { renderNode, renderHeadsup, updateHeadsup, updateNode } from "./render";
 import initHtml from "./html";
 
-
+const $canvas = document.querySelector("#canvas");
 
 const visualizer = {
-    canvas: document.querySelector("#canvas"),
-    ctx: canvas.getContext("2d"),
+    canvas: $canvas,
+    ctx: $canvas.getContext("2d"),
 
     headsup: {
         curPos: {},
