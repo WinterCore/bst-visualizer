@@ -57,7 +57,7 @@ export const updateNode = (visualizer, node, parent = null) => {
         node.extras.initialized = true;
     } else {
         if (!node.extras.entered) {
-            node.extras.multiplier += 0.03;
+            node.extras.multiplier += 0.06;
             if (node.extras.multiplier > 1) node.extras.entered = true;
         }
     }
@@ -198,10 +198,10 @@ export const updateHeadsup = (visualizer) => {
         headsup.transitioned = false;
         headsup.multiplier = 0;
     } else {
-        if (headsup.multiplier > 1) {
+        if (headsup.multiplier >= 1) {
             headsup.curPos = {...headsup.nextPos};
             headsup.transitioned = true;
         }
-        headsup.multiplier += 0.05;
+        headsup.multiplier = Math.min(headsup.multiplier + 0.1, 1);
     }
 };
