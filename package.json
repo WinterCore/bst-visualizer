@@ -1,0 +1,34 @@
+{
+  "name": "binary-tree-visualizer",
+  "version": "1.0.0",
+  "description": "## Features - Animation speed control. - Inserting random numbers. - Ability to export trees as png images. - Showing value insertion steps.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "webpack-dev-server",
+    "build": "webpack --mode production"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WinterCore/bst-visualizer.git"
+  },
+  "keywords": [
+    "bst",
+    "binary",
+    "search",
+    "tree",
+    "visualizer",
+    "visualizer",
+    "stpes"
+  ],
+  "author": "WinterCore",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/WinterCore/bst-visualizer/issues"
+  },
+  "homepage": "https://github.com/WinterCore/bst-visualizer#readme",
+  "devDependencies": {
+    "webpack": "^4.44.2",
+    "webpack-cli": "^3.3.12",
+    "webpack-dev-server": "^3.11.0"
+  }
+}
