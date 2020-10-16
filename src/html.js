@@ -1,4 +1,5 @@
 import BST from "./bst";
+import { sleep } from "./utils";
 
 export default function initHtml(visualizer) {     
     const $insert       = document.querySelector("#insert"),
@@ -83,6 +84,22 @@ export default function initHtml(visualizer) {
         }
     });
 
+    async function insertNode(visualizer, value) {
+        const gen = BST.push(visualizer.tree, value);
+    
+        let data = gen.next();
+        while (!data.done) {
+            const { highlightedNode, info } = data.value
+            visualizer.highlightedNode = highlightedNode;
+            visualizer.info = info;
+            if (visualizer.highlightedNode)
+                await sleep(visualizer.delay);
+            data = gen.next();
+        }
+
+        return data.value;
+    }
+
     $insert.parentNode.querySelector("button").addEventListener("click", () => {
         const { value } = $insert;
         if (visualizer.inserting) return;
@@ -99,18 +116,30 @@ export default function initHtml(visualizer) {
     $delay.parentNode.querySelector("button").addEventListener("click", () => {
         const { value } = $delay;
         if (!value.length || Number.isNaN(+value)) return;
+        
+        
+        insertNode(visualizer, value)
+            .then((tree) => {
+                visualizer.tree      = tree
+                visualizer.inserting = false;
+            })
+            .catch(console.log);
 
         visualizer.delay = +value;
     });
 
 
-    $random.addEventListener("click", () => {
+    $random.addEventListener("click", async () => {
         if (visualizer.inserting) return;
         visualizer.inserting = true;
-        BST.push(visualizer, visualizer.tree, Math.floor(Math.random() * 1000)).then((newTree) => {
-            visualizer.tree = newTree
-            visualizer.inserting = false;
-        }).catch(console.error);
+
+        insertNode(visualizer, Math.floor(Math.random() * 1000))
+            .then((tree) => {
+                visualizer.tree      = tree
+                visualizer.inserting = false;
+            })
+            .catch(console.log);
+        
     });
 
     document.querySelector("#close-help").addEventListener("click", () => {
