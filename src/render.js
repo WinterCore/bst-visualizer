@@ -4,8 +4,10 @@ import * as utils from "./utils";
 export const moveTree = (tree, dx = 0, dy = 0) => {
     if (dx === 0 && dy === 0) return;
     BST.breadthFirstTraverse(tree, (item) => {
-        item.extras.x += dx;
-        item.extras.x += dy;
+        item.extras.dx += dx;
+        item.extras.dy += dy;
+        item.extras.transitioned = false;
+        item.extras.moveMultiplier = 0;
     });
 };
 
@@ -13,14 +15,14 @@ export const fixCollisions = (visualizer, node) => {
     let parent = node.parent;
     const { padding, radius } = visualizer;
     while (parent) {
-        if (node.value > parent.value && node.extras.x <= parent.extras.x) {
-            moveTree(parent.right, (parent.extras.x - node.extras.x + padding + radius * 2));
+        if (node.value > parent.value && node.extras.dx <= parent.extras.dx) {
+            moveTree(parent.right, (parent.extras.dx - node.extras.dx + padding + radius * 2));
             BST.breadthFirstTraverse(parent.right, (item) => {
                 fixCollisions(visualizer, item);
             });
             break;
-        } else if (node.value < parent.value && node.extras.x >= parent.extras.x) {
-            moveTree(parent.left, -(node.extras.x - parent.extras.x + padding + radius * 2));
+        } else if (node.value < parent.value && node.extras.dx >= parent.extras.dx) {
+            moveTree(parent.left, -(node.extras.dx - parent.extras.dx + padding + radius * 2));
             BST.breadthFirstTraverse(parent.left, (item) => {
                 fixCollisions(visualizer, item);
             });
@@ -32,11 +34,10 @@ export const fixCollisions = (visualizer, node) => {
 
 export const calculateNodePosition = (visualizer, node, parent) => {
     const { radius, padding, dimensions } = visualizer;
-
     return parent
         ? {
-            x: parent.extras.x + (parent.left === node ? -1 : +1) * (padding + radius * 2),
-            y: parent.extras.y + padding + radius * 2
+            x: parent.extras.dx + (parent.left === node ? -1 : +1) * (padding + radius * 2),
+            y: parent.extras.dy + padding + radius * 2
         } : {
             x: 0,
             y: -(dimensions.height / 2) + padding + radius
@@ -49,8 +50,15 @@ export const updateNode = (visualizer, node, parent = null) => {
     if (!node.extras.initialized) {
         node.extras.multiplier = 0;
         const {x, y} = calculateNodePosition(visualizer, node, parent);
-        node.extras.x = x;
-        node.extras.y = y;
+
+        node.extras.sx             = x;
+        node.extras.sy             = y;
+        node.extras.x              = x;
+        node.extras.y              = y;
+        node.extras.dx             = x;
+        node.extras.dy             = y;
+        node.extras.transitioned   = true;
+        node.extras.moveMultiplier = 0;
         // TODO: Find a better place to call these 2 functions
         fixCollisions(visualizer, node);
         utils.updateCameraBounds(visualizer);
@@ -59,6 +67,26 @@ export const updateNode = (visualizer, node, parent = null) => {
         if (!node.extras.entered) {
             node.extras.multiplier += 0.06;
             if (node.extras.multiplier > 1) node.extras.entered = true;
+        }
+
+        if (!node.extras.transitioned) {
+            const { sx, sy, dx, dy, moveMultiplier } = node.extras;
+            if (moveMultiplier >= 1) {
+                node.extras.transitioned = true;
+                node.extras.sx = dx;
+                node.extras.sy = dy;
+                node.extras.x = dx;
+                node.extras.y = dy;
+                node.moveMultiplier = 0;
+                return;
+            }
+            const distance = utils.distance(sx, dx, sy, dy) * moveMultiplier;
+            const angle = utils.angle(dx, sx, dy, sy);
+            
+            node.extras.x = node.extras.sx + distance * Math.cos(angle);
+            node.extras.y = node.extras.sy + distance * Math.sin(angle);
+            
+            node.extras.moveMultiplier += 0.06;
         }
     }
 
