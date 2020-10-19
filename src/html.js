@@ -106,7 +106,7 @@ export default function initHtml(visualizer) {
         if (!value.length || Number.isNaN(+value)) return;
 
         visualizer.inserting = true;
-        insertNode(visualizer, value)
+        insertNode(visualizer, +value)
             .then((tree) => {
                 visualizer.tree      = tree
                 visualizer.inserting = false;
