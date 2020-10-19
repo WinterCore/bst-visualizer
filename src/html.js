@@ -106,11 +106,13 @@ export default function initHtml(visualizer) {
         if (!value.length || Number.isNaN(+value)) return;
 
         visualizer.inserting = true;
+        insertNode(visualizer, value)
+            .then((tree) => {
+                visualizer.tree      = tree
+                visualizer.inserting = false;
+            })
+            .catch(console.log);
         $insert.value = "";
-        BST.push(visualizer, visualizer.tree, +value).then((newTree) => {
-            visualizer.tree = newTree
-            visualizer.inserting = false;
-        });
     });
 
     $delay.parentNode.querySelector("button").addEventListener("click", () => {
@@ -118,12 +120,6 @@ export default function initHtml(visualizer) {
         if (!value.length || Number.isNaN(+value)) return;
         
         
-        insertNode(visualizer, value)
-            .then((tree) => {
-                visualizer.tree      = tree
-                visualizer.inserting = false;
-            })
-            .catch(console.log);
 
         visualizer.delay = +value;
     });
