@@ -14,6 +14,7 @@ export const moveTree = (tree, dx = 0, dy = 0) => {
 export const fixCollisions = (visualizer, node) => {
     let parent = node.parent;
     const { padding, radius } = visualizer;
+    // TODO: Make this better
     while (parent) {
         if (node.value > parent.value && node.extras.dx <= parent.extras.dx) {
             moveTree(parent.right, (parent.extras.dx - node.extras.dx + padding + radius * 2));
@@ -46,6 +47,14 @@ export const calculateNodePosition = (visualizer, node, parent) => {
 
 export const updateNode = (visualizer, node, parent = null) => {
     if (!node) return;
+    if (node.extras.dirty) {
+        const {x, y} = calculateNodePosition(visualizer, node, parent);
+        node.extras.moveMultiplier = 0;
+        node.extras.dx = x;
+        node.extras.dy = y;
+        node.extras.transitioned = false;
+        node.extras.dirty = false;
+    }
 
     if (!node.extras.initialized) {
         node.extras.multiplier = 0;
@@ -59,9 +68,6 @@ export const updateNode = (visualizer, node, parent = null) => {
         node.extras.dy             = y;
         node.extras.transitioned   = true;
         node.extras.moveMultiplier = 0;
-        // TODO: Find a better place to call these 2 functions
-        fixCollisions(visualizer, node);
-        utils.updateCameraBounds(visualizer);
         node.extras.initialized = true;
     } else {
         if (!node.extras.entered) {

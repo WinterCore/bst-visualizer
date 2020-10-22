@@ -1,4 +1,5 @@
 import BST from "./bst";
+import AVL from "./avl";
 import { sleep } from "./utils";
 
 export default function initHtml(visualizer) {     
@@ -10,7 +11,7 @@ export default function initHtml(visualizer) {
 
     $delay.value = visualizer.delay;
 
-
+    
     const resize = () => {
         const { dimensions, canvas } = visualizer;
         dimensions.width  = window.innerWidth;
@@ -85,7 +86,7 @@ export default function initHtml(visualizer) {
     });
 
     async function insertNode(visualizer, value) {
-        const gen = BST.push(visualizer.tree, value);
+        const gen = AVL.push(visualizer.tree, value);
     
         let data = gen.next();
         while (!data.done) {

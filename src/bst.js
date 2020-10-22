@@ -1,5 +1,3 @@
-import { sleep } from "./utils";
-
 class Node {
     constructor(value, parent = null, left = null, right = null) {
         this.value  = value;

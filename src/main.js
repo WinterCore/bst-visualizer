@@ -1,5 +1,6 @@
-import { renderNode, renderHeadsup, updateHeadsup, updateNode } from "./render";
+import { renderNode, renderHeadsup, updateHeadsup, updateNode, fixCollisions } from "./render";
 import initHtml from "./html";
+import * as utils from "./utils";
 
 const $canvas = document.querySelector("#canvas");
 
@@ -14,7 +15,7 @@ const visualizer = {
         initialized: false,
         multiplier: 0,
     },
-    delay: 2000,
+    delay: 400,
     highlightedNode: null,
     info: "",
 
@@ -87,6 +88,11 @@ const render = () => {
     ctx.clearRect(-hWidth * 100, -hHeight * 100, width * 200, height * 200);
 
     updateNode(visualizer, visualizer.tree);
+    if (visualizer.tree) {
+        fixCollisions(visualizer, visualizer.tree.left);
+        fixCollisions(visualizer, visualizer.tree.right);
+    }
+    utils.updateCameraBounds(visualizer);
     renderNode(visualizer, visualizer.tree);
 
     if (highlightedNode) {
