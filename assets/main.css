@@ -68,8 +68,12 @@ input:focus {
   color: red;
 }
 
-#insert, #speed {
+#insert, #delay {
   width: 100px;
+}
+
+#speed {
+  width: 130px;
 }
 
 #panel {
@@ -81,7 +85,7 @@ input:focus {
 }
 
 #panel > * {
-  margin: 0 10px;
+  margin: 0 5px;
 }
 
 #panel button {

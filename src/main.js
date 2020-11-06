@@ -16,6 +16,8 @@ const visualizer = {
         multiplier: 0,
     },
     delay: 400,
+    animSpeedScale: 0.5,
+
     highlightedNode: null,
     info: "",
 
@@ -88,10 +90,6 @@ const render = () => {
     ctx.clearRect(-hWidth * 100, -hHeight * 100, width * 200, height * 200);
 
     updateNode(visualizer, visualizer.tree);
-    if (visualizer.tree) {
-        fixCollisions(visualizer, visualizer.tree.left);
-        fixCollisions(visualizer, visualizer.tree.right);
-    }
     utils.updateCameraBounds(visualizer);
     renderNode(visualizer, visualizer.tree);
 

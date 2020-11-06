@@ -1,16 +1,16 @@
-import BST from "./bst";
 import AVL from "./avl";
 import { sleep } from "./utils";
 
 export default function initHtml(visualizer) {     
     const $insert       = document.querySelector("#insert"),
           $delay        = document.querySelector("#delay"),
+          $speed        = document.querySelector("#speed"),
           $random       = document.querySelector("#random"),
           $help         = document.querySelector("#help"),
           $downloadLink = document.querySelector("#download-link");
 
     $delay.value = visualizer.delay;
-
+    $speed.value = visualizer.animSpeedScale * 10000;
     
     const resize = () => {
         const { dimensions, canvas } = visualizer;
@@ -101,7 +101,7 @@ export default function initHtml(visualizer) {
         return data.value;
     }
 
-    $insert.parentNode.querySelector("button").addEventListener("click", () => {
+    function handleInsert() {
         const { value } = $insert;
         if (visualizer.inserting) return;
         if (!value.length || Number.isNaN(+value)) return;
@@ -114,17 +114,37 @@ export default function initHtml(visualizer) {
             })
             .catch(console.log);
         $insert.value = "";
-    });
+    }
 
-    $delay.parentNode.querySelector("button").addEventListener("click", () => {
+    function handleDelay() {
         const { value } = $delay;
         if (!value.length || Number.isNaN(+value)) return;
-        
-        
 
         visualizer.delay = +value;
+    }
+
+    function handleSpeed() {
+        const { value } = $speed;
+        if (!value.length || Number.isNaN(+value)) return;
+
+        visualizer.animSpeedScale = +value / 10000;
+    }
+
+    $insert.parentNode.querySelector("button").addEventListener("click", handleInsert);
+    $delay.parentNode.querySelector("button").addEventListener("click", handleDelay);
+    $speed.parentNode.querySelector("button").addEventListener("click", handleSpeed);
+
+    $insert.addEventListener("keydown", (e) => {
+        if (e.code === "Enter") handleInsert();
     });
 
+    $delay.addEventListener("keydown", (e) => {
+        if (e.code === "Enter") handleDelay();
+    });
+
+    $speed.addEventListener("keydown", (e) => {
+        if (e.code === "Enter") handleSpeed();
+    });
 
     $random.addEventListener("click", async () => {
         if (visualizer.inserting) return;

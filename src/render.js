@@ -12,6 +12,7 @@ export const moveTree = (tree, dx = 0, dy = 0) => {
 };
 
 export const fixCollisions = (visualizer, node) => {
+    if (!node) return;
     let parent = node.parent;
     const { padding, radius } = visualizer;
     // TODO: Make this better
@@ -68,11 +69,15 @@ export const updateNode = (visualizer, node, parent = null) => {
         node.extras.dy             = y;
         node.extras.transitioned   = true;
         node.extras.moveMultiplier = 0;
-        node.extras.initialized = true;
+        node.extras.initialized    = true;
+
+        utils.breadthFirstTraverse(visualizer.tree, (item) => {
+            fixCollisions(visualizer, item);
+        });
     } else {
         if (!node.extras.entered) {
-            node.extras.multiplier += 0.06;
-            if (node.extras.multiplier > 1) node.extras.entered = true;
+            node.extras.multiplier = Math.min(node.extras.multiplier + 0.06 * visualizer.animSpeedScale, 1);
+            if (node.extras.multiplier >= 1) node.extras.entered = true;
         }
 
         if (!node.extras.transitioned) {
@@ -92,7 +97,7 @@ export const updateNode = (visualizer, node, parent = null) => {
             node.extras.x = node.extras.sx + distance * Math.cos(angle);
             node.extras.y = node.extras.sy + distance * Math.sin(angle);
             
-            node.extras.moveMultiplier += 0.06;
+            node.extras.moveMultiplier = Math.min(node.extras.moveMultiplier + 0.06 * visualizer.animSpeedScale, 1);
         }
     }
 
@@ -236,6 +241,6 @@ export const updateHeadsup = (visualizer) => {
             headsup.curPos = {...headsup.nextPos};
             headsup.transitioned = true;
         }
-        headsup.multiplier = Math.min(headsup.multiplier + 0.1, 1);
+        headsup.multiplier = Math.min(headsup.multiplier + 0.1 * visualizer.animSpeedScale, 1);
     }
 };
