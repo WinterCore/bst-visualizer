@@ -53,19 +53,5 @@ export default class BST {
         if (!node) return 0;
         return node.height;
     }
-
-    static breadthFirstTraverse(node, callback) {
-        if (!node) return;
-        const deque = [];
-
-        deque.push(node);
-
-        while (deque.length) {
-            const current = deque.shift();
-            callback(current);
-            if (current.left) deque.push(current.left);
-            if (current.right) deque.push(current.right);
-        }
-    }
 }
 

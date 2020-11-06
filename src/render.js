@@ -3,7 +3,7 @@ import * as utils from "./utils";
 
 export const moveTree = (tree, dx = 0, dy = 0) => {
     if (dx === 0 && dy === 0) return;
-    BST.breadthFirstTraverse(tree, (item) => {
+    utils.breadthFirstTraverse(tree, (item) => {
         item.extras.dx += dx;
         item.extras.dy += dy;
         item.extras.transitioned = false;
@@ -18,13 +18,13 @@ export const fixCollisions = (visualizer, node) => {
     while (parent) {
         if (node.value > parent.value && node.extras.dx <= parent.extras.dx) {
             moveTree(parent.right, (parent.extras.dx - node.extras.dx + padding + radius * 2));
-            BST.breadthFirstTraverse(parent.right, (item) => {
+            utils.breadthFirstTraverse(parent.right, (item) => {
                 fixCollisions(visualizer, item);
             });
             break;
         } else if (node.value < parent.value && node.extras.dx >= parent.extras.dx) {
             moveTree(parent.left, -(node.extras.dx - parent.extras.dx + padding + radius * 2));
-            BST.breadthFirstTraverse(parent.left, (item) => {
+            utils.breadthFirstTraverse(parent.left, (item) => {
                 fixCollisions(visualizer, item);
             });
             break;
