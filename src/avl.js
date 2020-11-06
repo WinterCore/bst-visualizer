@@ -1,3 +1,5 @@
+import * as utils from './utils';
+
 class Node {
     constructor(value, parent = null, left = null, right = null) {
         this.value  = value;
@@ -50,27 +52,27 @@ export default class AVL {
         const balance = AVL.height(node.left) - AVL.height(node.right);
 
         if (balance > 1 && value < node.left.value) {
-            return AVL.rotateRight(node);
+            return yield *AVL.rotateRight(node);
         }
         if (balance > 1 && value > node.left.value) {
-            node.left = AVL.rotateLeft(node.left);
-            return AVL.rotateRight(node);
+            node.left = yield *AVL.rotateLeft(node.left);
+            return yield *AVL.rotateRight(node);
         }
     
         if (balance < -1 && value > node.right.value) {
-            return AVL.rotateLeft(node);
+            return yield *AVL.rotateLeft(node);
         }
     
         if (balance < -1 && value < node.right.value) {
-            node.right = AVL.rotateRight(node.right);
-            return AVL.rotateLeft(node);
+            node.right = yield *AVL.rotateRight(node.right);
+            return yield *AVL.rotateLeft(node);
         }
     
 
         return node;
     }
 
-    static rotateLeft(node) {
+    static *rotateLeft(node) {
         const y = node.right,
               z = y.left,
               rp = node.parent;
@@ -84,18 +86,22 @@ export default class AVL {
         node.height = 1 + Math.max(AVL.height(node.left), AVL.height(node.right));
         y.height = 1 + Math.max(AVL.height(y.left), AVL.height(y.right));
 
-        AVL.breadthFirstTraverse(y, (node) => node.extras.dirty = true);
+        utils.breadthFirstTraverse(y, (node) => node.extras.dirty = true);
+        yield({
+            highlightedNode: null,
+            info: `Balancing`
+        });
 
         return y;
     }
-    
-    static rotateRight(node) {
+
+    static *rotateRight(node) {
         const y = node.left,
               z = y.right,
               rp = node.parent;
 
         y.right = node;
-        node.left = z;
+        node.left = z;  
         
         node.parent = y;
         y.parent = rp;
@@ -104,11 +110,15 @@ export default class AVL {
         node.height = 1 + Math.max(AVL.height(node.left), AVL.height(node.right));
         y.height = 1 + Math.max(AVL.height(y.left), AVL.height(y.right));
 
-        AVL.breadthFirstTraverse(y, (node) => node.extras.dirty = true);
+        utils.breadthFirstTraverse(y, (node) => node.extras.dirty = true);
+        yield({
+            highlightedNode: null,
+            info: `Balancing`
+        });
 
         return y;
     }
-    
+
     static height(node) {
         if (!node) return 0;
         return node.height;
